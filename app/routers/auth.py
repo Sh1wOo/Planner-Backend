@@ -2,7 +2,13 @@ from fastapi import APIRouter, Depends, HTTPException, status, Response, Cookie
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
-from app.schemas.auth import RegisterRequest, LoginRequest, UserResponse
+from app.schemas.auth import (
+    RegisterRequest,
+    LoginRequest,
+    UserResponse,
+    TelegramLinkRequest,
+    TelegramLinkResponse,
+)
 from app.services.auth import (
     hash_password, verify_password,
     create_access_token, create_refresh_token,
@@ -11,6 +17,8 @@ from app.services.auth import (
 from app.models.user import User
 from app.dependencies import get_current_user
 from app.config import settings
+from app.services.telegram_auth import link_telegram_to_user
+
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
@@ -115,3 +123,22 @@ async def logout(
 @router.get("/me", response_model=UserResponse)
 async def me(current_user: User = Depends(get_current_user)):
     return current_user
+
+@router.post("/telegram/link", response_model=TelegramLinkResponse)
+async def link_telegram_account(
+    payload: TelegramLinkRequest,
+    session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    user = await link_telegram_to_user(
+        session=session,
+        current_user=current_user,
+        init_data=payload.init_data,
+        bot_token=settings.TELEGRAM_BOT_TOKEN,
+    )
+    return TelegramLinkResponse(
+        ok=True,
+        telegram_id=user.telegram_id,
+        telegram_username=user.telegram_username,
+        telegram_first_name=user.telegram_first_name,
+    )

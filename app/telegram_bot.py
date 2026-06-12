@@ -23,6 +23,8 @@ from sqlalchemy import select
 from app.config import settings
 from app.database import AsyncSessionLocal
 from app.models.task import Priority, Task
+from app.services.telegram_auth import get_user_by_telegram_id
+from app.services.task_service import get_tasks_for_user
 
 WEB_APP_TEXT = "Открыть приложение"
 
@@ -51,14 +53,12 @@ def format_task(task: Task) -> str:
     )
 
 
-async def fetch_tasks() -> list[Task]:
+async def fetch_tasks_for_user(user_id: int) -> list[Task]:
     async with AsyncSessionLocal() as db:
-        query = select(Task).where(Task.owner_id == settings.telegram_bot_owner_id).order_by(Task.due_date.asc())
-        result = await db.execute(query)
-        return result.scalars().all()
+        return await get_tasks_for_user(db, user_id)
 
 
-async def create_task_from_text(title: str, description: Optional[str], due_date: str, priority: str) -> Task:
+async def create_task_from_text(title: str, description: Optional[str], due_date: str, priority: str, owner_id: int) -> Task:
     try:
         due = datetime.fromisoformat(due_date).date()
     except ValueError:
@@ -75,7 +75,7 @@ async def create_task_from_text(title: str, description: Optional[str], due_date
             description=description,
             due_date=due,
             priority=priority_value,
-            owner_id=settings.telegram_bot_owner_id,
+            owner_id=owner_id,
         )
         db.add(task)
         await db.commit()
@@ -83,10 +83,10 @@ async def create_task_from_text(title: str, description: Optional[str], due_date
         return task
 
 
-async def update_task_from_text(task_id: int, title: Optional[str], description: Optional[str], due_date: Optional[str], priority: Optional[str], completed: Optional[str]) -> Task:
+async def update_task_from_text(task_id: int, title: Optional[str], description: Optional[str], due_date: Optional[str], priority: Optional[str], completed: Optional[str], owner_id: int) -> Task:
     async with AsyncSessionLocal() as db:
         task = await db.get(Task, task_id)
-        if not task or task.owner_id != settings.telegram_bot_owner_id:
+        if not task or task.owner_id != owner_id:
             raise LookupError("Задача не найдена")
 
         if title:
@@ -111,6 +111,24 @@ async def update_task_from_text(task_id: int, title: Optional[str], description:
         return task
 
 
+async def ensure_authorized(update: Update):
+    telegram_user = update.effective_user
+    if not telegram_user:
+        return None
+
+    async with AsyncSessionLocal() as db:
+        user = await get_user_by_telegram_id(db, telegram_user.id)
+
+    if not user:
+        await update.message.reply_text(
+            "Сначала открой мини-приложение и авторизуйся, чтобы я понял, какие задачи твои.",
+            reply_markup=build_web_app_reply_markup(),
+        )
+        return None
+
+    return user
+
+
 async def send_commands_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     text = (
         "Я могу показать задачи, создать новую задачу или обновить существующую.\n\n"
@@ -124,24 +142,12 @@ async def send_commands_message(update: Update, context: ContextTypes.DEFAULT_TY
     await update.message.reply_text("Нажмите кнопку ниже, чтобы открыть веб-приложение:", reply_markup=build_web_app_reply_markup())
 
 
-async def ensure_authorized(update: Update) -> bool:
-    """Return True if the Telegram user is the configured owner; otherwise send a help message and return False."""
-    user = update.effective_user
-    if not user or user.id != settings.telegram_bot_owner_id:
-        # Prompt the user to open the web app to authenticate
-        await update.message.reply_text(
-            "Сначала надо авторизоваться в приложении",
-            reply_markup=build_web_app_reply_markup(),
-        )
-        return False
-    return True
-
-
 async def list_tasks_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if not await ensure_authorized(update):
+    user = await ensure_authorized(update)
+    if not user:
         return
 
-    tasks = await fetch_tasks()
+    tasks = await fetch_tasks_for_user(user.id)
     if not tasks:
         await update.message.reply_text("Сейчас задач нет. Создайте первую задачу командой /add.")
         return
@@ -168,7 +174,8 @@ def parse_add_payload(text: str) -> tuple[str, Optional[str], str, str]:
 
 async def add_task_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     payload = update.message.text.partition(" ")[2].strip()
-    if not await ensure_authorized(update):
+    user = await ensure_authorized(update)
+    if not user:
         return
     if not payload:
         await update.message.reply_text("Используйте формат: /add Заголовок | Описание | YYYY-MM-DD | priority")
@@ -176,7 +183,7 @@ async def add_task_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
     try:
         title, description, due_date, priority = parse_add_payload(payload)
-        task = await create_task_from_text(title, description, due_date, priority)
+        task = await create_task_from_text(title, description, due_date, priority, owner_id=user.id)
         await update.message.reply_text(f"Задача создана: #{task.id} {task.title}")
     except ValueError as exc:
         await update.message.reply_text(str(exc))
@@ -198,7 +205,8 @@ def parse_edit_payload(text: str) -> tuple[int, Optional[str], Optional[str], Op
 
 async def edit_task_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     payload = update.message.text.partition(" ")[2].strip()
-    if not await ensure_authorized(update):
+    user = await ensure_authorized(update)
+    if not user:
         return
     if not payload:
         await update.message.reply_text("Используйте формат: /edit ID | Заголовок | Описание | YYYY-MM-DD | priority | completed")
@@ -206,7 +214,7 @@ async def edit_task_command(update: Update, context: ContextTypes.DEFAULT_TYPE) 
 
     try:
         task_id, title, description, due_date, priority, completed = parse_edit_payload(payload)
-        task = await update_task_from_text(task_id, title, description, due_date, priority, completed)
+        task = await update_task_from_text(task_id, title, description, due_date, priority, completed, owner_id=user.id)
         await update.message.reply_text(f"Задача обновлена: #{task.id} {task.title}")
     except ValueError as exc:
         await update.message.reply_text(str(exc))
