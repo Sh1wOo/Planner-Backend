@@ -20,6 +20,9 @@ COPY . /app/
 
 # run as non-root
 RUN adduser --disabled-password --gecos "" appuser || true
+
+# ensure entrypoint is executable
+RUN chmod +x /app/entrypoint.sh || true
 USER appuser
 
 EXPOSE 7878
