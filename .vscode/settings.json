@@ -1,0 +1,8 @@
+{
+  "chat.tools.terminal.autoApprove": {
+    "/^cd /Users/sh1woo/Desktop/planner-backend && source \\.venv/bin/activate && python -m py_compile app/main\\.py app/routers/auth\\.py app/routers/tasks\\.py app/services/auth\\.py app/dependencies\\.py app/database\\.py app/models/user\\.py app/models/task\\.py app/schemas/auth\\.py app/schemas/task\\.py app/config\\.py && python - <<'PY'\nfrom app\\.main import app\nprint\\('APP OK', app\\.title\\)\nPY$/": {
+      "approve": true,
+      "matchCommandLine": true
+    }
+  }
+}

@@ -1,0 +1,12 @@
+__pycache__
+*.pyc
+.venv
+venv
+env
+.env
+.git
+*.sqlite3
+build
+dist
+/.idea
+.pytest_cache
