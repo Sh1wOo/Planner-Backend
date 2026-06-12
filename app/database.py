@@ -3,6 +3,7 @@ from sqlalchemy.orm import DeclarativeBase
 from app.config import settings
 import asyncio
 import logging
+from sqlalchemy import text
 
 
 class Base(DeclarativeBase):
@@ -50,7 +51,7 @@ async def ensure_engine():
         # quick connectivity check with short timeout
         async def _check():
             async with engine.connect() as conn:
-                await conn.execute("SELECT 1")
+                await conn.execute(text("SELECT 1"))
 
         await asyncio.wait_for(_check(), timeout=3)
         return False
