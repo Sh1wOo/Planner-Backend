@@ -7,10 +7,11 @@
 1. В репозитории должны быть `Dockerfile` в корне — уже есть.
 2. Войдите в Coolify и создайте новое приложение, выбрав деплой из репозитория (GitHub/GitLab).
 3. В настройках приложения укажите путь к Dockerfile (по умолчанию `Dockerfile`).
-4. В разделе переменных окружения в Coolify добавьте все переменные из вашего `.env` (не добавляйте `.env` в образ). Обязательные переменные:
-   - `DATABASE_URL` — должен использовать `asyncpg`: `postgresql+asyncpg://user:pass@host:port/db`
-   - `ALEMBIC_DATABASE_URL` — должен использовать `psycopg2`: `postgresql+psycopg2://user:pass@host:port/db`
-   - `SECRET_KEY`, `ALGORITHM`, `ACCESS_TOKEN_EXPIRE_MINUTES`, `REFRESH_TOKEN_EXPIRE_DAYS`
+4. В разделе переменных окружения в Coolify добавьте только те переменные, которые вы хотите переопределить. По умолчанию проект использует локальный SQLite:
+   - `DATABASE_URL` (необязательно) — `sqlite+aiosqlite:///./dev.db` или любая другая async база
+   - `ALEMBIC_DATABASE_URL` (необязательно) — `sqlite:///./dev.db`
+   - `SECRET_KEY` (необязательно)
+   - `ALGORITHM`, `ACCESS_TOKEN_EXPIRE_MINUTES`, `REFRESH_TOKEN_EXPIRE_DAYS`
    - `FRONTEND_URL`
    - `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBAPP_URL`, `TELEGRAM_BOT_OWNER_ID` (если нужен Telegram бот)
    - `PORT` (опционально, Coolify задаёт порт автоматически; приложение слушает `${PORT:-7878}`)

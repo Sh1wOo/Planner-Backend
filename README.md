@@ -1,6 +1,6 @@
 # Planner Backend
 
-FastAPI + PostgreSQL (asyncpg) + Alembic
+FastAPI + SQLite (aiosqlite) + Alembic
 
 ## Структура проекта
 
@@ -50,6 +50,7 @@ uvicorn app.main:app --reload
 ## Миграции (Alembic)
 
 ```bash
+cd planner-backend
 # Первая миграция
 alembic revision --autogenerate -m "initial"
 alembic upgrade head

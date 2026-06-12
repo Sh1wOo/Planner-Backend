@@ -7,9 +7,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 class Settings(BaseSettings):
-    database_url: str
-    alembic_database_url: str
-    secret_key: str
+    database_url: str = "sqlite+aiosqlite:///./dev.db"
+    alembic_database_url: str = "sqlite:///./dev.db"
+    secret_key: str = "secret"
     skip_db_init: bool = False
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 15
@@ -21,23 +21,13 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
-# Normalize common uppercase env names into lowercase keys expected by Settings
-for key in ("DATABASE_URL", "ALEMBIC_DATABASE_URL", "SECRET_KEY"):
-    if os.getenv(key) and not os.getenv(key.lower()):
-        os.environ[key.lower()] = os.getenv(key)
-
-# Prepare init kwargs from available env vars (support both upper and lower case names)
-init_kwargs = {}
-for field in ("database_url", "alembic_database_url", "secret_key"):
-    val = os.getenv(field) or os.getenv(field.upper())
-    if val is not None:
-        init_kwargs[field] = val
+# Allow overriding only the secret via env, database URLs default to local SQLite.
+secret = os.getenv("SECRET_KEY") or os.getenv("secret_key")
 
 try:
-    settings = Settings(**init_kwargs)
+    settings = Settings(secret_key=secret) if secret is not None else Settings()
 except ValidationError as exc:
     log = logging.getLogger("uvicorn.error")
-    # collect missing fields for clearer error
     missing = []
     for err in exc.errors():
         if err.get("type") == "missing":
