@@ -1,4 +1,6 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import ValidationError
+import logging
 
 class Settings(BaseSettings):
     database_url: str
@@ -15,4 +17,18 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
-settings = Settings()
+try:
+    settings = Settings()
+except ValidationError as exc:
+    log = logging.getLogger("uvicorn.error")
+    # collect missing fields for clearer error
+    missing = []
+    for err in exc.errors():
+        if err.get("type") == "missing":
+            loc = err.get("loc") or []
+            if loc:
+                missing.append(loc[0])
+    if missing:
+        log.error("Missing required environment variables: %s", ", ".join(missing))
+    log.exception("Settings validation failed: %s", exc)
+    raise
