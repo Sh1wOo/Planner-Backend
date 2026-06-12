@@ -22,6 +22,6 @@ COPY . /app/
 RUN adduser --disabled-password --gecos "" appuser || true
 USER appuser
 
-EXPOSE 8000
+EXPOSE 7878
 
 CMD ["sh", "/app/entrypoint.sh"]

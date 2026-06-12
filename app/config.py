@@ -1,6 +1,7 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import ValidationError
 import logging
+import os
 
 class Settings(BaseSettings):
     database_url: str
@@ -15,7 +16,12 @@ class Settings(BaseSettings):
     telegram_webapp_url: str | None = None
     telegram_bot_owner_id: int = 1
 
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+        model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    # Normalize common uppercase env names into lowercase keys expected by Settings
+    for key in ("DATABASE_URL", "ALEMBIC_DATABASE_URL", "SECRET_KEY"):
+        if os.getenv(key) and not os.getenv(key.lower()):
+            os.environ[key.lower()] = os.getenv(key)
 
 try:
     settings = Settings()

@@ -3,10 +3,10 @@ services:
   web:
     build: .
     ports:
-      - "8000:8000"
+      - "7878:7878"
     env_file: .env
     environment:
-      - PORT=8000
+      - PORT=7878
     volumes:
       - ./:/app:cached
     depends_on: []

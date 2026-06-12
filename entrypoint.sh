@@ -9,4 +9,4 @@ if [ -n "$ALEMBIC_DATABASE_URL" ]; then
   alembic upgrade head || echo "alembic upgrade failed"
 fi
 
-exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}
+exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-7878}
